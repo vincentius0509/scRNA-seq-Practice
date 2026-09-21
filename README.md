@@ -87,7 +87,9 @@ Raw input data (10x Cell Ranger output: `filtered_feature_bc_matrix.h5`, `raw_fe
 
 ## Suggested Next Steps (추천 후속 분석)
 
-기존 파이프라인(QC → clustering → annotation → CAF subclustering)에서 확장해볼 만한 세 가지 분석 방향을 정리했습니다. 우선순위 순서로 배치했습니다.
+> **Note**: Unlike the practice code above (`01`–`06`), the analyses proposed in this section are written and designed by the repository author as original extensions of the pipeline, not adapted from the course/workshop.
+
+기존 파이프라인(QC → clustering → annotation → CAF subclustering)에서 확장해볼 만한 두 가지 분석 방향을 정리했습니다. 우선순위 순서로 배치했습니다.
 
 ### 1. 싱글셀 → 공간전사체 Deconvolution 연결
 
