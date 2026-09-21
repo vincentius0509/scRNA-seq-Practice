@@ -126,22 +126,3 @@ Use the annotated single-cell reference from this pipeline to deconvolve public 
 
 **English summary**
 Apply `CellChat` or `CellPhoneDB` to the annotated Seurat object to infer ligand-receptor interactions between cell types, comparing signaling pathways used by different CAF subtypes (i-CAF/my-CAF/ap-CAF) with tumor and immune cells — moving beyond marker gene lists to a functional interpretation of the tumor microenvironment.
-
----
-
-### 3. Doublet 검출 기반 품질 재검토
-
-**목적**
-03번 QC 단계에서는 발현량/미토콘드리아 비율 기준으로만 필터링했는데, 이번 분석 과정에서 실제로 두 가지 의심 사례가 발견됐습니다 — (1) cluster 16이 여러 세포타입 라벨에 애매하게 걸쳐 있던 점, (2) fibroblast 서브클러스터링 결과 3개 중 2개 서브클러스터가 대식세포/상피세포 마커를 보인 점. 두 사례 모두 doublet(하나의 droplet에 두 세포가 함께 포착된 경우)일 가능성을 배제할 수 없어, 전용 도구로 검증해볼 필요가 있습니다.
-
-**방법 / 도구**
-1. `scDblFinder`(Bioconductor) 또는 `DoubletFinder`(CRAN/GitHub)를 03번 QC 단계에 추가
-2. 전체 클러스터에 대해 doublet score를 계산하고, cluster 16 및 fibroblast 서브클러스터 0/1이 다른 클러스터 대비 doublet score가 높게 나오는지 확인
-3. doublet으로 판정된 세포를 제거한 뒤 03~04번 파이프라인을 재실행하여 클러스터링 결과가 어떻게 달라지는지 비교
-
-**기대 효과**
-- 기존 분석에서 발견된 애매한 클러스터(16번)와 fibroblast 오염 문제에 대한 기술적 근거 확보
-- QC 파이프라인 자체를 한 단계 보강하는 의미도 있음
-
-**English summary**
-Add `scDblFinder` or `DoubletFinder` to the QC step to test whether the previously ambiguous cluster 16 and the two contaminated fibroblast subclusters (showing macrophage/epithelial markers) are in fact doublets, then re-run clustering after doublet removal to see how results change.
