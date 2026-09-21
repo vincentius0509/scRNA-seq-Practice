@@ -84,3 +84,64 @@ Raw input data (10x Cell Ranger output: `filtered_feature_bc_matrix.h5`, `raw_fe
 
 - All file paths are relative to a `single_cell/` working directory and contain session-specific subfolders (`Session 2/`, `Session 3/Session 3/`) — update paths to match your own directory structure before running.
 - Mitochondrial gene pattern (`^mt-`) and marker gene panels are specific to **mouse** data; adjust for human data (`^MT-`) accordingly.
+
+## Suggested Next Steps (추천 후속 분석)
+
+기존 파이프라인(QC → clustering → annotation → CAF subclustering)에서 확장해볼 만한 세 가지 분석 방향을 정리했습니다. 우선순위 순서로 배치했습니다.
+
+### 1. 싱글셀 → 공간전사체 Deconvolution 연결
+
+**목적**
+지금까지 만든 싱글셀 cell type reference를 이용해서, 공개된 공간전사체(spatial transcriptomics) 데이터의 각 spot에 어떤 세포 타입이 얼마나 섞여 있는지 추정하는 분석입니다. 공간전사체 데이터(예: 10x Visium)는 spot 하나에 여러 세포가 섞여 들어가는 경우가 많아서(single-cell 해상도가 아님), 싱글셀 데이터를 reference로 활용해 각 spot의 세포 구성비를 통계적으로 추정하는 **deconvolution** 과정이 필요합니다.
+
+**방법 / 도구**
+1. 공개 Visium 데이터셋 다운로드 (예: 10x Genomics의 유방암 조직 데모 데이터)
+2. 본 파이프라인의 `Clusterwithcompletelabels.RDS`(cell type 라벨이 붙은 최종 Seurat object)를 reference로 사용
+3. `cell2location`(Python, Bayesian 기반) 또는 `RCTD`(R, `spacexr` 패키지)로 deconvolution 수행
+4. 각 spot에 대해 세포 타입 구성비를 추정하고, 공간 좌표 위에 파이 차트 또는 색상 그라데이션으로 시각화
+
+**기대 효과**
+- 종양미세환경(TME) 내에서 특정 세포 타입(예: CAF, 면역세포)이 공간적으로 어디에 몰려 있는지 확인 가능
+- 싱글셀 분석과 공간 데이터 분석을 연결하는 실전 경험 확보
+
+**English summary**
+Use the annotated single-cell reference from this pipeline to deconvolve public Visium spatial transcriptomics data (via `cell2location` or `RCTD`), estimating the cell-type composition of each spot and visualizing spatial distribution of specific populations (e.g., CAFs, immune cells) within the tumor microenvironment.
+
+---
+
+### 2. Cell-Cell Communication 분석
+
+**목적**
+어노테이션이 완료된 Seurat object를 대상으로, 세포 타입 간에 어떤 리간드-리셉터(ligand-receptor) 상호작용이 일어나는지 추론하는 분석입니다. 특히 CAF 아형(i-CAF/my-CAF/ap-CAF)별로 종양세포·면역세포와 다른 신호 경로를 쓰는지 비교하면, 단순 marker gene 나열을 넘어선 기능적 해석이 가능합니다.
+
+**방법 / 도구**
+1. `CellChat` 또는 `CellPhoneDB` 패키지를 annotation이 완료된 `seurat.obj`(및 필요시 fibroblast subcluster 결과)에 적용
+2. 세포 타입 간 상호작용 강도를 계산 (`computeCommunProb` 등)
+3. CAF 아형별로 어떤 신호 경로(signaling pathway)가 유의하게 활성화되는지 비교
+4. 결과를 circle plot, heatmap, bubble plot 등으로 시각화
+
+**기대 효과**
+- 단순 세포 구성 파악을 넘어, 세포 간 상호작용이라는 기능적 레이어 추가
+- 종양미세환경 연구에서 자주 요구되는 분석 유형이라 실전 활용도가 높음
+
+**English summary**
+Apply `CellChat` or `CellPhoneDB` to the annotated Seurat object to infer ligand-receptor interactions between cell types, comparing signaling pathways used by different CAF subtypes (i-CAF/my-CAF/ap-CAF) with tumor and immune cells — moving beyond marker gene lists to a functional interpretation of the tumor microenvironment.
+
+---
+
+### 3. Doublet 검출 기반 품질 재검토
+
+**목적**
+03번 QC 단계에서는 발현량/미토콘드리아 비율 기준으로만 필터링했는데, 이번 분석 과정에서 실제로 두 가지 의심 사례가 발견됐습니다 — (1) cluster 16이 여러 세포타입 라벨에 애매하게 걸쳐 있던 점, (2) fibroblast 서브클러스터링 결과 3개 중 2개 서브클러스터가 대식세포/상피세포 마커를 보인 점. 두 사례 모두 doublet(하나의 droplet에 두 세포가 함께 포착된 경우)일 가능성을 배제할 수 없어, 전용 도구로 검증해볼 필요가 있습니다.
+
+**방법 / 도구**
+1. `scDblFinder`(Bioconductor) 또는 `DoubletFinder`(CRAN/GitHub)를 03번 QC 단계에 추가
+2. 전체 클러스터에 대해 doublet score를 계산하고, cluster 16 및 fibroblast 서브클러스터 0/1이 다른 클러스터 대비 doublet score가 높게 나오는지 확인
+3. doublet으로 판정된 세포를 제거한 뒤 03~04번 파이프라인을 재실행하여 클러스터링 결과가 어떻게 달라지는지 비교
+
+**기대 효과**
+- 기존 분석에서 발견된 애매한 클러스터(16번)와 fibroblast 오염 문제에 대한 기술적 근거 확보
+- QC 파이프라인 자체를 한 단계 보강하는 의미도 있음
+
+**English summary**
+Add `scDblFinder` or `DoubletFinder` to the QC step to test whether the previously ambiguous cluster 16 and the two contaminated fibroblast subclusters (showing macrophage/epithelial markers) are in fact doublets, then re-run clustering after doublet removal to see how results change.
